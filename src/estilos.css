@@ -1,0 +1,263 @@
+:root {
+  --fondo: #f3f6f4;
+  --superficie: #ffffff;
+  --tinta: #12262a;
+  --gris: #57686b;
+  --linea: #d7e0dd;
+  --petroleo: #123a3f;
+  --menta: #5ad1b4;
+  --miel: #f6c453;
+  --error: #b3402e;
+  --letra: "Onest Variable", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--tinta);
+  font: 400 1rem/1.55 var(--letra);
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+p {
+  margin: 0;
+}
+a {
+  color: var(--petroleo);
+  font-weight: 600;
+}
+:focus-visible {
+  outline: 3px solid var(--miel);
+  outline-offset: 2px;
+}
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.7rem 1.3rem;
+  border: 2px solid var(--petroleo);
+  border-radius: 12px;
+  background: var(--petroleo);
+  color: #fff;
+  font: 600 1rem var(--letra);
+  text-decoration: none;
+  cursor: pointer;
+}
+.boton--borde {
+  background: transparent;
+  color: var(--petroleo);
+}
+.boton--grande {
+  width: 100%;
+  min-height: 56px;
+  font-size: 1.1rem;
+}
+.boton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Inicio */
+.inicio {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 6vw, 3.5rem) 16px 3rem;
+  display: grid;
+  gap: 1.25rem;
+}
+.marca {
+  font-weight: 700;
+  color: var(--petroleo);
+  letter-spacing: -0.01em;
+}
+.inicio h1 {
+  font-size: clamp(1.7rem, 6vw, 2.5rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+.pasos {
+  margin: 0;
+  padding-left: 1.3rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.privado {
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: #e2f3ee;
+}
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.fuente {
+  color: var(--gris);
+  font-size: 0.88rem;
+}
+
+/* Grabar: cámara arriba y panel abajo en el celular, lado a lado en el computador */
+.grabar {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 900px) {
+  .grabar {
+    grid-template-columns: 1.4fr 1fr;
+    align-items: start;
+    padding-top: 2rem;
+  }
+}
+.camara {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--petroleo);
+  border: 4px solid transparent;
+}
+.camara[data-grabando] {
+  border-color: var(--miel);
+}
+/* Como un espejo: más fácil copiar la seña */
+.camara video,
+.camara canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.camara__estado,
+.camara__pista,
+.camara__rec {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgb(18 38 42 / 0.82);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.camara__estado {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: normal;
+  width: min(90%, 420px);
+  text-align: center;
+  border-radius: 14px;
+}
+.camara__estado--error {
+  background: var(--error);
+}
+.camara__pista {
+  bottom: 14px;
+}
+.camara__rec {
+  top: 14px;
+  background: var(--miel);
+  color: var(--tinta);
+}
+.camara__cuenta {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(5rem, 22vw, 9rem);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 4px 24px rgb(0 0 0 / 0.45);
+}
+
+.panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+  border-radius: 18px;
+}
+.panel__letra {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+.letra {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 16px;
+  background: var(--petroleo);
+  color: var(--miel);
+  font-size: 3rem;
+  font-weight: 800;
+}
+.panel__titulo {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.panel__sub {
+  color: var(--gris);
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+.panel__letra a {
+  font-size: 0.95rem;
+}
+.aviso {
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+.aviso--ok {
+  background: #e2f3ee;
+}
+.aviso--error {
+  background: #f8e3df;
+  color: #6e2216;
+}
+
+.letras {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 0.4rem;
+}
+.letras__una {
+  display: grid;
+  justify-items: center;
+  gap: 0.05rem;
+  padding: 0.4rem 0;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: var(--fondo);
+  color: var(--tinta);
+  font: 700 1.05rem var(--letra);
+  cursor: pointer;
+}
+.letras__una[data-lista] {
+  background: #e2f3ee;
+  border-color: #b7e2d6;
+}
+.letras__una[aria-pressed="true"] {
+  border: 2px solid var(--petroleo);
+}
+.letras__n {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--gris);
+}
