@@ -1,11 +1,210 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { HandLandmarker, HandLandmarkerResult } from "@mediapipe/tasks-vision";
+import type { HandLandmarkerResult } from "@mediapipe/tasks-vision";
+import { useCamaraMano, type EstadoCamara } from "./camara";
 import { LAMINA_OFICIAL, LETRAS, META, type Letra } from "./letras";
-import { cargarDetector, cuadroDe, dibujarMano } from "./mano";
+import { cuadroDe } from "./mano";
+import { predecir, rasgos, type Modelo } from "./modelo";
 import { guardarMuestra, type Cuadro } from "./nube";
 
-type Progreso = Partial<Record<Letra, number>>;
+type Pantalla = "inicio" | "probar" | "grabar";
+const desdeHash = (): Pantalla => (location.hash === "#/grabar" ? "grabar" : location.hash === "#/probar" ? "probar" : "inicio");
 
+export function App() {
+  const [pantalla, setPantalla] = useState<Pantalla>(desdeHash);
+  useEffect(() => {
+    const cambio = () => setPantalla(desdeHash());
+    addEventListener("hashchange", cambio);
+    return () => removeEventListener("hashchange", cambio);
+  }, []);
+  if (pantalla === "grabar") return <Grabar />;
+  if (pantalla === "probar") return <Probar />;
+  return <Inicio />;
+}
+
+function Barra({ titulo }: { titulo: string }) {
+  return (
+    <header className="barra">
+      <a href="#/" className="barra__volver">
+        ‹ Alfabeto LSC
+      </a>
+      <span>{titulo}</span>
+    </header>
+  );
+}
+
+function Inicio() {
+  return (
+    <main className="inicio">
+      <p className="marca">Alfabeto LSC</p>
+      <h1>Reconocer con la cámara el alfabeto de la Lengua de Señas Colombiana</h1>
+      <p>
+        Haz una letra del alfabeto manual frente a la cámara y el modelo te dice cuál es. Va armando la palabra a medida que deletreas. Todo pasa en tu celular o computador: la imagen de la cámara no
+        sale de tu equipo.
+      </p>
+      <div className="acciones">
+        <a className="boton" href="#/probar">
+          Probar el reconocedor
+        </a>
+        <a className="boton boton--borde" href={LAMINA_OFICIAL} target="_blank" rel="noopener">
+          Ver el alfabeto oficial
+        </a>
+      </div>
+
+      <section className="ayuda">
+        <h2>Ayúdame a mejorarlo</h2>
+        <p>
+          El modelo aprende de ejemplos, y entre más manos distintas vea, mejor funciona con cualquier persona. Si quieres, graba los tuyos: no necesitas saber lengua de señas, solo copiar cada letra de
+          la lámina. Son 3 grabaciones de 3 segundos por letra.
+        </p>
+        <p className="privado">
+          <strong>No se guarda ninguna imagen ni video.</strong> Solo las posiciones de 21 puntos de la mano (números), sin tu nombre ni ningún dato tuyo.
+        </p>
+        <a className="boton boton--borde" href="#/grabar">
+          Grabar ejemplos
+        </a>
+      </section>
+
+      <p className="fuente">
+        Las señas son las del alfabeto manual del Diccionario básico de la Lengua de Señas Colombiana (Instituto Caro y Cuervo e INSOR, página 573). Por ahora reconoce las 21 letras que se hacen con
+        la mano quieta; G, H, J, Ñ, S y Z llevan movimiento y quedan para después.
+      </p>
+    </main>
+  );
+}
+
+function VistaCamara({ video, lienzo, estado, hayMano, encima, borde }: { video: React.RefObject<HTMLVideoElement | null>; lienzo: React.RefObject<HTMLCanvasElement | null>; estado: EstadoCamara; hayMano: boolean; encima?: React.ReactNode; borde?: boolean }) {
+  return (
+    <div className="camara" data-grabando={borde || undefined}>
+      <video ref={video} playsInline muted />
+      <canvas ref={lienzo} aria-hidden="true" />
+      {estado.tipo === "cargando" && <p className="camara__estado">Preparando la cámara y el modelo…</p>}
+      {estado.tipo === "error" && <p className="camara__estado camara__estado--error">{estado.mensaje}</p>}
+      {estado.tipo === "listo" && !hayMano && <p className="camara__pista">Pon la mano frente a la cámara</p>}
+      {encima}
+    </div>
+  );
+}
+
+// ---------- Probar ----------
+
+const VENTANA = 8; // cuadros que se promedian para que la letra no salte
+const SOSTENER = 22; // cuadros seguidos con la misma letra para escribirla (~0,8 s)
+
+function Probar() {
+  const [modelo, setModelo] = useState<Modelo | null>(null);
+  const [top, setTop] = useState<{ letra: string; p: number }[]>([]);
+  const [texto, setTexto] = useState("");
+  const [carga, setCarga] = useState(0);
+  const historia = useRef<number[][]>([]);
+  const racha = useRef({ letra: "", n: 0, escrita: false });
+
+  useEffect(() => {
+    fetch("/modelo.json")
+      .then((r) => r.json())
+      .then(setModelo)
+      .catch(() => undefined);
+  }, []);
+
+  const alResultado = useCallback(
+    (r: HandLandmarkerResult) => {
+      if (!modelo) return;
+      if (!r.landmarks.length) {
+        historia.current = [];
+        racha.current = { letra: "", n: 0, escrita: false };
+        setTop([]);
+        setCarga(0);
+        return;
+      }
+      const w = r.worldLandmarks[0].flatMap((q) => [q.x, q.y, q.z]);
+      const mano = r.handedness[0]?.[0]?.categoryName ?? null;
+      historia.current.push(predecir(modelo, rasgos(w, mano)));
+      if (historia.current.length > VENTANA) historia.current.shift();
+      const prom = modelo.letras.map((_, i) => historia.current.reduce((s, p) => s + p[i], 0) / historia.current.length);
+      const orden = prom.map((p, i) => ({ letra: modelo.letras[i], p })).sort((a, b) => b.p - a.p);
+      setTop(orden.slice(0, 3));
+
+      const mejor = orden[0];
+      const ra = racha.current;
+      if (mejor.p < 0.6) {
+        racha.current = { letra: "", n: 0, escrita: false };
+        setCarga(0);
+        return;
+      }
+      if (mejor.letra === ra.letra) ra.n++;
+      else racha.current = { letra: mejor.letra, n: 1, escrita: false };
+      setCarga(Math.min(1, racha.current.n / SOSTENER));
+      if (!racha.current.escrita && racha.current.n >= SOSTENER) {
+        racha.current.escrita = true;
+        setTexto((t) => (t + mejor.letra).slice(-40));
+      }
+    },
+    [modelo],
+  );
+
+  const cam = useCamaraMano(alResultado, () => "#5ad1b4");
+  const actual = top[0];
+
+  return (
+    <>
+      <Barra titulo="Probar" />
+      <main className="grabar">
+        <VistaCamara {...cam} encima={actual && actual.p >= 0.6 && <p className="camara__letra">{actual.letra}</p>} />
+        <section className="panel" aria-live="polite">
+          <div>
+            <p className="panel__titulo">Lo que estás deletreando</p>
+            <p className="texto" aria-label="Texto">
+              {texto || <span className="texto__vacio">Sostén una letra un segundo para escribirla</span>}
+              <span className="texto__cursor" />
+            </p>
+            <div className="sostener" aria-hidden="true">
+              <i style={{ width: `${carga * 100}%` }} />
+            </div>
+          </div>
+          <div className="botones">
+            <button className="boton boton--borde" onClick={() => setTexto((t) => t + " ")}>
+              Espacio
+            </button>
+            <button className="boton boton--borde" onClick={() => setTexto((t) => t.slice(0, -1))}>
+              Borrar
+            </button>
+            <button className="boton boton--borde" onClick={() => setTexto("")}>
+              Limpiar
+            </button>
+          </div>
+
+          <div>
+            <p className="panel__sub">Lo que ve el modelo ahora</p>
+            {top.length ? (
+              <ul className="top">
+                {top.map((t) => (
+                  <li key={t.letra}>
+                    <b>{t.letra}</b>
+                    <span className="top__barra">
+                      <i style={{ width: `${Math.round(t.p * 100)}%` }} />
+                    </span>
+                    <span>{Math.round(t.p * 100)} %</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="panel__sub">{modelo ? "Esperando una mano…" : "Cargando el modelo…"}</p>
+            )}
+          </div>
+          <p className="fuente">
+            Primera versión, entrenada con una sola persona. La M y la N todavía se confunden entre ellas.{" "}
+            <a href={LAMINA_OFICIAL} target="_blank" rel="noopener">
+              Ver el alfabeto oficial
+            </a>
+          </p>
+        </section>
+      </main>
+    </>
+  );
+}
+
+// ---------- Grabar ----------
+
+type Progreso = Partial<Record<Letra, number>>;
 const leerProgreso = (): Progreso => {
   try {
     return JSON.parse(localStorage.getItem("lsc:progreso") ?? "{}");
@@ -14,148 +213,52 @@ const leerProgreso = (): Progreso => {
   }
 };
 
-export function App() {
-  const [empezo, setEmpezo] = useState(false);
-  return empezo ? <Grabar /> : <Inicio onEmpezar={() => setEmpezo(true)} />;
-}
-
-function Inicio({ onEmpezar }: { onEmpezar: () => void }) {
-  return (
-    <main className="inicio">
-      <p className="marca">Alfabeto LSC</p>
-      <h1>Ayúdame a enseñarle a un modelo el alfabeto de la Lengua de Señas Colombiana</h1>
-      <p>
-        Estoy haciendo una app que reconoce con la cámara las letras del alfabeto de señas. Para que aprenda necesita ejemplos de muchas manos, y aquí puedes grabar los tuyos. No necesitas saber
-        lengua de señas: copias cada letra de la lámina oficial.
-      </p>
-      <ol className="pasos">
-        <li>Abre la lámina del alfabeto (botón de abajo). Si puedes, ábrela en otro equipo o imprímela para tenerla al lado.</li>
-        <li>Permite la cámara y pon la mano frente a ella. Vas a ver los puntos de tu mano dibujados encima.</li>
-        <li>Haz la forma de la letra que te pida y dale a Grabar. Son 3 segundos por grabación y 3 grabaciones por letra.</li>
-      </ol>
-      <p className="privado">
-        <strong>No se guarda ninguna imagen ni video.</strong> Solo se guardan las posiciones de 21 puntos de la mano (números), sin tu nombre ni ningún dato tuyo.
-      </p>
-      <div className="acciones">
-        <button className="boton" onClick={onEmpezar}>
-          Empezar a grabar
-        </button>
-        <a className="boton boton--borde" href={LAMINA_OFICIAL} target="_blank" rel="noopener">
-          Ver la lámina oficial
-        </a>
-      </div>
-      <p className="fuente">
-        La lámina es del Diccionario básico de la Lengua de Señas Colombiana, del Instituto Caro y Cuervo y el INSOR (alfabeto manual, página 573). Aquí solo van las 21 letras que se hacen con la mano
-        quieta; G, H, J, Ñ, S y Z llevan movimiento y quedan para después.
-      </p>
-    </main>
-  );
-}
-
-type Estado = { tipo: "cargando" } | { tipo: "error"; mensaje: string } | { tipo: "listo" } | { tipo: "cuenta"; n: number } | { tipo: "grabando" } | { tipo: "guardando" };
+type Fase = { tipo: "quieto" } | { tipo: "cuenta"; n: number } | { tipo: "grabando" } | { tipo: "guardando" };
 
 function Grabar() {
-  const video = useRef<HTMLVideoElement>(null);
-  const lienzo = useRef<HTMLCanvasElement>(null);
-  const detector = useRef<HandLandmarker | null>(null);
-  const ultimo = useRef<HandLandmarkerResult | null>(null);
   const grabando = useRef(false);
   const cuadros = useRef<Cuadro[]>([]);
   const mano = useRef<"Left" | "Right" | null>(null);
+  const ultimaCaptura = useRef(0);
 
-  const [estado, setEstado] = useState<Estado>({ tipo: "cargando" });
-  const [hayMano, setHayMano] = useState(false);
+  const [fase, setFase] = useState<Fase>({ tipo: "quieto" });
   const [progreso, setProgreso] = useState<Progreso>(leerProgreso);
   const [letra, setLetra] = useState<Letra>(() => LETRAS.find((l) => (leerProgreso()[l] ?? 0) < META) ?? "A");
   const [aviso, setAviso] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
 
-  // Cámara y detector
-  useEffect(() => {
-    let vivo = true;
-    let flujo: MediaStream | null = null;
-    let cuadro = 0;
-    let tiempoVideo = -1;
-    let ultimaCaptura = 0;
-
-    (async () => {
-      try {
-        flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 960 }, height: { ideal: 720 } }, audio: false });
-      } catch {
-        if (vivo) setEstado({ tipo: "error", mensaje: "No se pudo usar la cámara. Revisa que le diste permiso a esta página y que ninguna otra app la esté usando." });
-        return;
+  const cam = useCamaraMano(
+    (r) => {
+      const ahora = performance.now();
+      if (grabando.current && r.landmarks.length && ahora - ultimaCaptura.current >= 90) {
+        ultimaCaptura.current = ahora;
+        cuadros.current.push(cuadroDe(r));
+        mano.current = (r.handedness[0]?.[0]?.categoryName as "Left" | "Right") ?? null;
       }
-      if (!vivo) {
-        flujo.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      const v = video.current!;
-      v.srcObject = flujo;
-      await v.play().catch(() => undefined);
-      try {
-        detector.current = await cargarDetector();
-      } catch {
-        if (vivo) setEstado({ tipo: "error", mensaje: "No se pudo cargar el modelo que detecta la mano. Revisa el internet y recarga la página." });
-        return;
-      }
-      if (!vivo) return;
-      setEstado({ tipo: "listo" });
-
-      const ciclo = () => {
-        if (!vivo) return;
-        const d = detector.current;
-        if (d && v.readyState >= 2 && v.currentTime !== tiempoVideo) {
-          tiempoVideo = v.currentTime;
-          const c = lienzo.current!;
-          if (c.width !== v.videoWidth) {
-            c.width = v.videoWidth;
-            c.height = v.videoHeight;
-          }
-          const r = d.detectForVideo(v, performance.now());
-          ultimo.current = r;
-          const con = r.landmarks.length > 0;
-          setHayMano(con);
-          dibujarMano(c, r, grabando.current ? "#f6c453" : "#5ad1b4");
-          const ahora = performance.now();
-          if (grabando.current && con && ahora - ultimaCaptura >= 90) {
-            ultimaCaptura = ahora;
-            cuadros.current.push(cuadroDe(r));
-            mano.current = (r.handedness[0]?.[0]?.categoryName as "Left" | "Right") ?? null;
-          }
-        }
-        cuadro = requestAnimationFrame(ciclo);
-      };
-      cuadro = requestAnimationFrame(ciclo);
-    })();
-
-    return () => {
-      vivo = false;
-      cancelAnimationFrame(cuadro);
-      flujo?.getTracks().forEach((t) => t.stop());
-      detector.current?.close();
-    };
-  }, []);
+    },
+    () => (grabando.current ? "#f6c453" : "#5ad1b4"),
+  );
 
   const grabar = useCallback(async () => {
     setAviso(null);
     for (const n of [3, 2, 1]) {
-      setEstado({ tipo: "cuenta", n });
+      setFase({ tipo: "cuenta", n });
       await new Promise((r) => setTimeout(r, 800));
     }
     cuadros.current = [];
     mano.current = null;
     grabando.current = true;
-    setEstado({ tipo: "grabando" });
+    setFase({ tipo: "grabando" });
     await new Promise((r) => setTimeout(r, 3000));
     grabando.current = false;
 
     if (cuadros.current.length < 12) {
-      setEstado({ tipo: "listo" });
+      setFase({ tipo: "quieto" });
       setAviso({ tipo: "error", texto: "No se vio bien la mano. Ponla más cerca de la cámara, con buena luz, y vuelve a grabar." });
       return;
     }
-    setEstado({ tipo: "guardando" });
+    setFase({ tipo: "guardando" });
     const error = await guardarMuestra(letra, mano.current, cuadros.current);
-    setEstado({ tipo: "listo" });
+    setFase({ tipo: "quieto" });
     if (error) {
       setAviso({ tipo: "error", texto: error });
       return;
@@ -178,51 +281,55 @@ function Grabar() {
   }, [letra, progreso]);
 
   const total = LETRAS.reduce((s, l) => s + Math.min(progreso[l] ?? 0, META), 0);
-  const ocupado = estado.tipo === "cuenta" || estado.tipo === "grabando" || estado.tipo === "guardando";
+  const ocupado = fase.tipo !== "quieto";
+  const listo = cam.estado.tipo === "listo";
 
   return (
-    <main className="grabar">
-      <div className="camara" data-grabando={estado.tipo === "grabando" || undefined}>
-        <video ref={video} playsInline muted />
-        <canvas ref={lienzo} aria-hidden="true" />
-        {estado.tipo === "cargando" && <p className="camara__estado">Preparando la cámara y el modelo…</p>}
-        {estado.tipo === "error" && <p className="camara__estado camara__estado--error">{estado.mensaje}</p>}
-        {estado.tipo === "cuenta" && <p className="camara__cuenta">{estado.n}</p>}
-        {estado.tipo === "grabando" && <p className="camara__rec">Grabando…</p>}
-        {estado.tipo === "listo" && !hayMano && <p className="camara__pista">Pon la mano frente a la cámara</p>}
-      </div>
-
-      <section className="panel" aria-live="polite">
-        <div className="panel__letra">
-          <span className="letra">{letra}</span>
-          <div>
-            <p className="panel__titulo">Haz la letra {letra}</p>
-            <p className="panel__sub">
-              {Math.min(progreso[letra] ?? 0, META)} de {META} grabaciones · {total} de {LETRAS.length * META} en total
-            </p>
-            <a href={LAMINA_OFICIAL} target="_blank" rel="noopener">
-              Ver cómo se hace en la lámina oficial
-            </a>
+    <>
+      <Barra titulo="Grabar ejemplos" />
+      <main className="grabar">
+        <VistaCamara
+          {...cam}
+          borde={fase.tipo === "grabando"}
+          encima={
+            <>
+              {fase.tipo === "cuenta" && <p className="camara__cuenta">{fase.n}</p>}
+              {fase.tipo === "grabando" && <p className="camara__rec">Grabando…</p>}
+            </>
+          }
+        />
+        <section className="panel" aria-live="polite">
+          <div className="panel__letra">
+            <span className="letra">{letra}</span>
+            <div>
+              <p className="panel__titulo">Haz la letra {letra}</p>
+              <p className="panel__sub">
+                {Math.min(progreso[letra] ?? 0, META)} de {META} grabaciones · {total} de {LETRAS.length * META} en total
+              </p>
+              <a href={LAMINA_OFICIAL} target="_blank" rel="noopener">
+                Ver cómo se hace en la lámina oficial
+              </a>
+            </div>
           </div>
-        </div>
 
-        <button className="boton boton--grande" onClick={grabar} disabled={estado.tipo !== "listo" || !hayMano}>
-          {estado.tipo === "guardando" ? "Guardando…" : estado.tipo === "grabando" ? "Mantén la seña…" : estado.tipo === "cuenta" ? "Prepárate…" : "Grabar 3 segundos"}
-        </button>
-        {aviso && <p className={`aviso aviso--${aviso.tipo}`}>{aviso.texto}</p>}
+          <button className="boton boton--grande" onClick={grabar} disabled={!listo || ocupado || !cam.hayMano}>
+            {fase.tipo === "guardando" ? "Guardando…" : fase.tipo === "grabando" ? "Mantén la seña…" : fase.tipo === "cuenta" ? "Prepárate…" : "Grabar 3 segundos"}
+          </button>
+          {aviso && <p className={`aviso aviso--${aviso.tipo}`}>{aviso.texto}</p>}
 
-        <div className="letras" role="group" aria-label="Elegir letra">
-          {LETRAS.map((l) => {
-            const n = Math.min(progreso[l] ?? 0, META);
-            return (
-              <button key={l} className="letras__una" aria-pressed={l === letra} data-lista={n >= META || undefined} onClick={() => setLetra(l)} disabled={ocupado}>
-                {l}
-                <span className="letras__n">{n >= META ? "✓" : `${n}/${META}`}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-    </main>
+          <div className="letras" role="group" aria-label="Elegir letra">
+            {LETRAS.map((l) => {
+              const n = Math.min(progreso[l] ?? 0, META);
+              return (
+                <button key={l} className="letras__una" aria-pressed={l === letra} data-lista={n >= META || undefined} onClick={() => setLetra(l)} disabled={ocupado}>
+                  {l}
+                  <span className="letras__n">{n >= META ? "✓" : `${n}/${META}`}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </main>
+    </>
   );
 }

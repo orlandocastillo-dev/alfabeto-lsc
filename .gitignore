@@ -29,3 +29,5 @@ coverage
 dev-dist
 
 public/mediapipe
+modelo/datos/
+__pycache__/

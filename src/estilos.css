@@ -261,3 +261,145 @@ a {
   font-weight: 500;
   color: var(--gris);
 }
+
+/* Barra de arriba en Probar y Grabar */
+.barra {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 16px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--gris);
+  font-weight: 600;
+}
+.barra__volver {
+  text-decoration: none;
+}
+@media (min-width: 900px) {
+  .barra + .grabar {
+    padding-top: 1rem;
+  }
+}
+
+.ayuda {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: start;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+}
+.ayuda h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+/* Probar */
+.camara__letra {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border-radius: 18px;
+  background: var(--miel);
+  color: var(--tinta);
+  font-size: 3.4rem;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+.texto {
+  min-height: 3.4rem;
+  margin-top: 0.35rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: var(--fondo);
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  word-break: break-all;
+}
+.texto__vacio {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--gris);
+}
+.texto__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.6rem;
+  margin-left: 2px;
+  vertical-align: -0.2rem;
+  background: var(--petroleo);
+  animation: parpadeo 1s steps(1) infinite;
+}
+@keyframes parpadeo {
+  50% {
+    opacity: 0;
+  }
+}
+.sostener {
+  height: 6px;
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  background: var(--linea);
+  overflow: hidden;
+}
+.sostener i {
+  display: block;
+  height: 100%;
+  background: var(--menta);
+  transition: width 0.08s linear;
+}
+.botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.botones .boton {
+  min-height: 42px;
+  padding: 0.45rem 1rem;
+}
+.top {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.top li {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr 3rem;
+  align-items: center;
+  gap: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.top b {
+  font-size: 1.2rem;
+}
+.top__barra {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--fondo);
+  overflow: hidden;
+}
+.top__barra i {
+  display: block;
+  height: 100%;
+  background: var(--petroleo);
+}
+.top li span:last-child {
+  text-align: right;
+  color: var(--gris);
+  font-size: 0.9rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .texto__cursor {
+    animation: none;
+  }
+}
