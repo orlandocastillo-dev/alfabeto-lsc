@@ -25,48 +25,75 @@ function Barra({ titulo }: { titulo: string }) {
   return (
     <header className="barra">
       <a href="#/" className="barra__volver">
-        ‹ Alfabeto LSC
+        ← Alfabeto LSC
       </a>
       <span>{titulo}</span>
     </header>
   );
 }
 
+const ABECEDARIO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+const RECONOCE = new Set<string>(LETRAS);
+
 function Inicio() {
   return (
     <main className="inicio">
-      <p className="marca">Alfabeto LSC</p>
-      <h1>Reconocer con la cámara el alfabeto de la Lengua de Señas Colombiana</h1>
-      <p>
-        Haz una letra del alfabeto manual frente a la cámara y el modelo te dice cuál es. Va armando la palabra a medida que deletreas. Todo pasa en tu celular o computador: la imagen de la cámara no
-        sale de tu equipo.
-      </p>
-      <div className="acciones">
-        <a className="boton" href="#/probar">
-          Probar el reconocedor
-        </a>
-        <a className="boton boton--borde" href={LAMINA_OFICIAL} target="_blank" rel="noopener">
-          Ver el alfabeto oficial
-        </a>
+      <header className="cabeza">
+        <span>Alfabeto LSC</span>
+        <span>Lengua de Señas Colombiana</span>
+      </header>
+
+      <div className="portada">
+        <div className="portada__texto">
+          <h1>Deletrea con la mano. La cámara lee.</h1>
+          <p>
+            Haz una letra del alfabeto manual frente a la cámara y el modelo te dice cuál es. Va armando la palabra a medida que deletreas. Todo pasa en tu celular o computador: la imagen de la cámara no
+            sale de tu equipo.
+          </p>
+          <div className="acciones">
+            <a className="boton" href="#/probar">
+              Probar el reconocedor
+            </a>
+            <a className="enlace" href={LAMINA_OFICIAL} target="_blank" rel="noopener">
+              Ver el alfabeto oficial ↗
+            </a>
+          </div>
+        </div>
+
+        <figure className="lamina">
+          <ol aria-label="Alfabeto manual">
+            {ABECEDARIO.map((l) => (
+              <li key={l} data-pronto={!RECONOCE.has(l) || undefined}>
+                {l}
+                {!RECONOCE.has(l) && <small>pronto</small>}
+              </li>
+            ))}
+          </ol>
+          <figcaption>
+            Reconoce las {LETRAS.length} letras que se hacen con la mano quieta. Las rayadas llevan movimiento y quedan para después.
+          </figcaption>
+        </figure>
       </div>
 
       <section className="ayuda">
-        <h2>Ayúdame a mejorarlo</h2>
-        <p>
-          El modelo aprende de ejemplos, y entre más manos distintas vea, mejor funciona con cualquier persona. Si quieres, graba los tuyos: no necesitas saber lengua de señas, solo copiar cada letra de
-          la lámina. Son 3 grabaciones de 3 segundos por letra.
-        </p>
-        <p className="privado">
-          <strong>No se guarda ninguna imagen ni video.</strong> Solo las posiciones de 21 puntos de la mano (números), sin tu nombre ni ningún dato tuyo.
-        </p>
-        <a className="boton boton--borde" href="#/grabar">
-          Grabar ejemplos
-        </a>
+        <p className="ayuda__marca">Se buscan manos</p>
+        <div>
+          <h2>Ayúdame a mejorarlo</h2>
+          <p>
+            El modelo aprende de ejemplos, y entre más manos distintas vea, mejor funciona con cualquier persona. No necesitas saber lengua de señas, solo copiar cada letra de la lámina: son 3
+            grabaciones de 3 segundos por letra.
+          </p>
+          <p>
+            <strong>No se guarda ninguna imagen ni video.</strong> Solo las posiciones de 21 puntos de la mano (números), sin tu nombre ni ningún dato tuyo.
+          </p>
+          <a className="boton boton--claro" href="#/grabar">
+            Grabar ejemplos
+          </a>
+        </div>
       </section>
 
       <p className="fuente">
-        Las señas son las del alfabeto manual del Diccionario básico de la Lengua de Señas Colombiana (Instituto Caro y Cuervo e INSOR, página 573). Por ahora reconoce las 21 letras que se hacen con
-        la mano quieta; G, H, J, Ñ, S y Z llevan movimiento y quedan para después.
+        Señas tomadas del alfabeto manual del Diccionario básico de la Lengua de Señas Colombiana (Instituto Caro y Cuervo e INSOR, página 573).
       </p>
     </main>
   );
@@ -141,25 +168,44 @@ function Probar() {
     [modelo],
   );
 
-  const cam = useCamaraMano(alResultado, () => "#5ad1b4");
+  const cam = useCamaraMano(alResultado, () => "#e5097f");
   const actual = top[0];
 
   return (
     <>
       <Barra titulo="Probar" />
-      <main className="grabar">
-        <VistaCamara {...cam} encima={actual && actual.p >= 0.6 && <p className="camara__letra">{actual.letra}</p>} />
-        <section className="panel" aria-live="polite">
-          <div>
-            <p className="panel__titulo">Lo que estás deletreando</p>
-            <p className="texto" aria-label="Texto">
-              {texto || <span className="texto__vacio">Sostén una letra un segundo para escribirla</span>}
-              <span className="texto__cursor" />
-            </p>
-            <div className="sostener" aria-hidden="true">
-              <i style={{ width: `${carga * 100}%` }} />
-            </div>
+      <main className="pantalla">
+        <VistaCamara {...cam} />
+        <section className="ficha" data-activa={(actual && actual.p >= 0.6) || undefined} aria-live="polite">
+          <p className="ficha__rotulo">{modelo ? (actual ? "Estás haciendo la" : "Esperando una mano") : "Cargando el modelo"}</p>
+          <p className="ficha__letra">{actual && actual.p >= 0.6 ? actual.letra : "?"}</p>
+          <div className="ficha__carga" aria-hidden="true">
+            <i style={{ width: `${carga * 100}%` }} />
           </div>
+          <table className="top">
+            <caption>Lo que ve el modelo</caption>
+            <tbody>
+              {(top.length ? top : [null, null, null]).map((t, i) => (
+                <tr key={t?.letra ?? i}>
+                  <th>{t?.letra ?? "·"}</th>
+                  <td>
+                    <span className="top__barra">
+                      <i style={{ width: `${t ? Math.round(t.p * 100) : 0}%` }} />
+                    </span>
+                  </td>
+                  <td>{t ? `${Math.round(t.p * 100)} %` : ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="cinta">
+          <p className="cinta__rotulo">Lo que llevas deletreado</p>
+          <p className="cinta__texto" aria-label="Texto">
+            {texto ? texto.split("").map((c, i) => <span key={i}>{c === " " ? "\u00a0" : c}</span>) : <em>Sostén una letra un segundo para escribirla</em>}
+            <b className="cinta__cursor" />
+          </p>
           <div className="botones">
             <button className="boton boton--borde" onClick={() => setTexto((t) => t + " ")}>
               Espacio
@@ -171,32 +217,13 @@ function Probar() {
               Limpiar
             </button>
           </div>
-
-          <div>
-            <p className="panel__sub">Lo que ve el modelo ahora</p>
-            {top.length ? (
-              <ul className="top">
-                {top.map((t) => (
-                  <li key={t.letra}>
-                    <b>{t.letra}</b>
-                    <span className="top__barra">
-                      <i style={{ width: `${Math.round(t.p * 100)}%` }} />
-                    </span>
-                    <span>{Math.round(t.p * 100)} %</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="panel__sub">{modelo ? "Esperando una mano…" : "Cargando el modelo…"}</p>
-            )}
-          </div>
-          <p className="fuente">
-            Primera versión, entrenada con una sola persona. La M y la N todavía se confunden entre ellas.{" "}
-            <a href={LAMINA_OFICIAL} target="_blank" rel="noopener">
-              Ver el alfabeto oficial
-            </a>
-          </p>
         </section>
+        <p className="fuente pantalla__nota">
+          Primera versión, entrenada con una sola persona.{" "}
+          <a href={LAMINA_OFICIAL} target="_blank" rel="noopener">
+            Ver el alfabeto oficial
+          </a>
+        </p>
       </main>
     </>
   );
@@ -235,7 +262,7 @@ function Grabar() {
         mano.current = (r.handedness[0]?.[0]?.categoryName as "Left" | "Right") ?? null;
       }
     },
-    () => (grabando.current ? "#f6c453" : "#5ad1b4"),
+    () => (grabando.current ? "#ffffff" : "#e5097f"),
   );
 
   const grabar = useCallback(async () => {
@@ -287,7 +314,7 @@ function Grabar() {
   return (
     <>
       <Barra titulo="Grabar ejemplos" />
-      <main className="grabar">
+      <main className="pantalla">
         <VistaCamara
           {...cam}
           borde={fase.tipo === "grabando"}
@@ -298,12 +325,12 @@ function Grabar() {
             </>
           }
         />
-        <section className="panel" aria-live="polite">
-          <div className="panel__letra">
-            <span className="letra">{letra}</span>
+        <section className="ficha ficha--grabar" aria-live="polite">
+          <div className="ficha__fila">
+            <p className="ficha__letra">{letra}</p>
             <div>
-              <p className="panel__titulo">Haz la letra {letra}</p>
-              <p className="panel__sub">
+              <p className="ficha__titulo">Haz la letra {letra}</p>
+              <p className="ficha__sub">
                 {Math.min(progreso[letra] ?? 0, META)} de {META} grabaciones · {total} de {LETRAS.length * META} en total
               </p>
               <a href={LAMINA_OFICIAL} target="_blank" rel="noopener">

@@ -11,7 +11,7 @@ Tiene dos partes:
 
 `modelo/entrenar.py` toma los puntos de cada cuadro, los centra en la muñeca y los escala según el tamaño de la mano, les suma las distancias entre las puntas de los dedos y entrena una red neuronal pequeña con scikit-learn. El resultado se guarda en `public/modelo.json` y la página hace la misma cuenta en el navegador (`src/modelo.ts`); hay una prueba que revisa que las dos den lo mismo.
 
-Para medirlo, el modelo aprende con dos grabaciones de cada letra y se prueba con la tercera, que nunca vio. En la primera versión, con una sola persona, acertó el 94 %. La M y la N se confunden entre ellas, porque solo cambia cuántos dedos van sobre el pulgar. Con más personas grabando debería mejorar, y también va a medir mejor qué tan bien funciona con alguien que el modelo no conoce.
+Para medirlo, el modelo aprende con dos grabaciones de cada letra y se prueba con la tercera, que nunca vio. En la primera versión, con una sola persona, acertó el 94 %. Con más personas grabando debería mejorar, y también va a medir mejor qué tan bien funciona con alguien que el modelo no conoce.
 
 Las grabaciones no están en el repositorio: se descargan de Supabase a `modelo/datos/` para entrenar.
 
