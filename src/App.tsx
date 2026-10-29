@@ -5,6 +5,7 @@ import { LAMINA_OFICIAL, LETRAS, META, type Letra } from "./letras";
 import { cuadroDe } from "./mano";
 import { predecir, rasgos, type Modelo } from "./modelo";
 import { guardarMuestra, type Cuadro } from "./nube";
+import { ManoAnimada } from "./ManoAnimada";
 
 type Pantalla = "inicio" | "probar" | "grabar";
 const desdeHash = (): Pantalla => (location.hash === "#/grabar" ? "grabar" : location.hash === "#/probar" ? "probar" : "inicio");
@@ -25,7 +26,7 @@ function Barra({ titulo }: { titulo: string }) {
   return (
     <header className="barra">
       <a href="#/" className="barra__volver">
-        ← Alfabeto LSC
+        <Marca /> Alfabeto LSC
       </a>
       <span>{titulo}</span>
     </header>
@@ -35,58 +36,103 @@ function Barra({ titulo }: { titulo: string }) {
 const ABECEDARIO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 const RECONOCE = new Set<string>(LETRAS);
 
+function Marca() {
+  return (
+    <svg className="marca" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 21v-8M8.5 13.5 7 6.5M12 13V4M15.5 13.5 17 6.5M8.5 13.5l-3.3 3" />
+      <circle cx="12" cy="21" r="1.6" />
+      <circle cx="7" cy="6.5" r="1.4" />
+      <circle cx="12" cy="4" r="1.4" />
+      <circle cx="17" cy="6.5" r="1.4" />
+      <circle cx="5.2" cy="16.5" r="1.4" />
+    </svg>
+  );
+}
+
 function Inicio() {
   return (
     <main className="inicio">
-      <header className="cabeza">
-        <span>Alfabeto LSC</span>
-        <span>Lengua de Señas Colombiana</span>
-      </header>
+      <section className="escena">
+        <header className="cabeza">
+          <span className="cabeza__marca">
+            <Marca /> Alfabeto LSC
+          </span>
+          <a className="boton boton--chico" href="#/probar">
+            Probar
+          </a>
+        </header>
 
-      <div className="portada">
-        <div className="portada__texto">
-          <h1>Deletrea con la mano. La cámara lee.</h1>
-          <p>
-            Haz una letra del alfabeto manual frente a la cámara y el modelo te dice cuál es. Va armando la palabra a medida que deletreas. Todo pasa en tu celular o computador: la imagen de la cámara no
-            sale de tu equipo.
-          </p>
-          <div className="acciones">
-            <a className="boton" href="#/probar">
-              Probar el reconocedor
-            </a>
-            <a className="enlace" href={LAMINA_OFICIAL} target="_blank" rel="noopener">
-              Ver el alfabeto oficial ↗
-            </a>
+        <div className="portada">
+          <div className="portada__texto">
+            <p className="portada__kicker">Lengua de Señas Colombiana</p>
+            <h1>
+              Deletrea con la mano. <em>La cámara lee.</em>
+            </h1>
+            <p>
+              Haz una letra del alfabeto manual frente a la cámara y el modelo te dice cuál es. Va armando la palabra a medida que deletreas. Todo pasa en tu celular o computador: la imagen de la cámara no
+              sale de tu equipo.
+            </p>
+            <div className="acciones">
+              <a className="boton" href="#/probar">
+                Probar el reconocedor
+              </a>
+              <a className="enlace" href={LAMINA_OFICIAL} target="_blank" rel="noopener">
+                Ver el alfabeto oficial ↗
+              </a>
+            </div>
           </div>
+          <ManoAnimada />
         </div>
+      </section>
 
-        <figure className="lamina">
-          <ol aria-label="Alfabeto manual">
-            {ABECEDARIO.map((l) => (
-              <li key={l} data-pronto={!RECONOCE.has(l) || undefined}>
-                {l}
-                {!RECONOCE.has(l) && <small>pronto</small>}
-              </li>
-            ))}
-          </ol>
-          <figcaption>
-            Reconoce las {LETRAS.length} letras que se hacen con la mano quieta. Las rayadas llevan movimiento y quedan para después.
-          </figcaption>
-        </figure>
-      </div>
+      <section className="como" aria-labelledby="t-como">
+        <h2 id="t-como">Cómo lee tu mano</h2>
+        <ol>
+          <li>
+            <span>01</span>
+            <h3>La cámara encuentra la mano</h3>
+            <p>MediaPipe ubica 21 puntos: la muñeca y cada articulación de los dedos.</p>
+          </li>
+          <li>
+            <span>02</span>
+            <h3>Solo quedan los puntos</h3>
+            <p>Se usan las posiciones, no la imagen. Nada de video sale de tu equipo.</p>
+          </li>
+          <li>
+            <span>03</span>
+            <h3>Una red neuronal decide</h3>
+            <p>Entrenada con ejemplos reales, corre en el navegador y dice qué letra es y qué tan segura está.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section className="abc" aria-labelledby="t-abc">
+        <div className="abc__texto">
+          <h2 id="t-abc">{LETRAS.length} letras con la mano quieta</h2>
+          <p>Las rayadas llevan movimiento y quedan para la siguiente versión.</p>
+        </div>
+        <ol className="lamina" aria-label="Alfabeto manual">
+          {ABECEDARIO.map((l) => (
+            <li key={l} data-pronto={!RECONOCE.has(l) || undefined}>
+              {l}
+              {!RECONOCE.has(l) && <small>pronto</small>}
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="ayuda">
-        <p className="ayuda__marca">Se buscan manos</p>
-        <div>
+        <div className="ayuda__dentro">
+          <p className="ayuda__marca">Se buscan manos</p>
           <h2>Ayúdame a mejorarlo</h2>
           <p>
-            El modelo aprende de ejemplos, y entre más manos distintas vea, mejor funciona con cualquier persona. No necesitas saber lengua de señas, solo copiar cada letra de la lámina: son 3
-            grabaciones de 3 segundos por letra.
+            El modelo aprende de ejemplos, y entre más manos distintas vea, mejor funciona con cualquier persona. No necesitas saber lengua de señas, solo copiar cada letra de la lámina: son 3 grabaciones
+            de 3 segundos por letra.
           </p>
           <p>
             <strong>No se guarda ninguna imagen ni video.</strong> Solo las posiciones de 21 puntos de la mano (números), sin tu nombre ni ningún dato tuyo.
           </p>
-          <a className="boton boton--claro" href="#/grabar">
+          <a className="boton" href="#/grabar">
             Grabar ejemplos
           </a>
         </div>
@@ -187,7 +233,7 @@ function Probar() {
             <tbody>
               {(top.length ? top : [null, null, null]).map((t, i) => (
                 <tr key={t?.letra ?? i}>
-                  <th>{t?.letra ?? "·"}</th>
+                  <th>{t?.letra ?? ""}</th>
                   <td>
                     <span className="top__barra">
                       <i style={{ width: `${t ? Math.round(t.p * 100) : 0}%` }} />
@@ -331,7 +377,7 @@ function Grabar() {
             <div>
               <p className="ficha__titulo">Haz la letra {letra}</p>
               <p className="ficha__sub">
-                {Math.min(progreso[letra] ?? 0, META)} de {META} grabaciones · {total} de {LETRAS.length * META} en total
+                {Math.min(progreso[letra] ?? 0, META)} de {META} grabaciones, {total} de {LETRAS.length * META} en total
               </p>
               <a href={LAMINA_OFICIAL} target="_blank" rel="noopener">
                 Ver cómo se hace en la lámina oficial
